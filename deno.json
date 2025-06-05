@@ -7,7 +7,9 @@
     "ai": "npm:ai@^3.4.33",
     "@ai-sdk/openai": "npm:@ai-sdk/openai@^0.0.56",
     "zod": "npm:zod@^3.25.51",
-    "std/": "https://deno.land/std@0.208.0/"
+    "std/": "https://deno.land/std@0.208.0/",
+    "@std/fmt": "https://deno.land/std@0.208.0/fmt/mod.ts",
+    "@std/fmt/colors": "https://deno.land/std@0.208.0/fmt/colors.ts"
   },
   "compilerOptions": {
     "lib": ["deno.window", "deno.worker", "deno.unstable"]

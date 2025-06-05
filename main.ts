@@ -1,12 +1,13 @@
 import { AndromedaAgent } from "./agent.ts";
+import { colors } from "https://deno.land/x/cliffy@v1.0.0-rc.7/ansi/colors.ts";
 
 // Check for OpenAI API key
 const apiKey = Deno.env.get("OPENAI_API_KEY") ||
   Deno.args.find((arg) => arg.startsWith("--api-key="))?.split("=")[1];
 if (!apiKey) {
-  console.error("❌ OPENAI_API_KEY environment variable is required");
-  console.log("Please set your OpenAI API key:");
-  console.log("export OPENAI_API_KEY=your_api_key_here");
+  console.error(colors.red("❌ OPENAI_API_KEY environment variable is required"));
+  console.log(colors.yellow("Please set your OpenAI API key:"));
+  console.log(colors.cyan("export OPENAI_API_KEY=your_api_key_here"));
   Deno.exit(1);
 }
 
@@ -25,29 +26,38 @@ try {
     throw new Error("Andromeda not found");
   }
 } catch {
-  console.error("❌ Andromeda runtime is not installed or not in PATH");
-  console.log("Please install Andromeda runtime:");
-  console.log("cargo install --git https://github.com/tryandromeda/andromeda");
+  console.error(colors.red("❌ Andromeda runtime is not installed or not in PATH"));
+  console.log(colors.yellow("Please install Andromeda runtime:"));
+  console.log(colors.cyan("cargo install --git https://github.com/tryandromeda/andromeda"));
   Deno.exit(1);
 }
 
 // Create Andromeda agent with configuration
 const agent = new AndromedaAgent({
-  model: "gpt-4",
-  temperature: 0.7,
-  maxTokens: 2000,
-  workspaceDir: "./workspace",
+  model: Deno.args.find((arg) => arg.startsWith("--model="))?.split("=")[1] ||
+    "gpt-4",
+  temperature: Number(
+    Deno.args.find((arg) => arg.startsWith("--temperature="))?.split("=")[1] ||
+      0.7,
+  ),
+  maxTokens: Number(
+    Deno.args.find((arg) => arg.startsWith("--max-tokens="))?.split("=")[1] ||
+      2000,
+  ),
+  workspaceDir: Deno.args.find((arg) =>
+    arg.startsWith("--workspace=")
+  )?.split("=")[1] || "./workspace",
   apiKey,
 });
 
-console.log("🌌 Andromeda AI Agent started!");
+console.log(colors.magenta.bold("🌌 Andromeda AI Agent started!"));
 console.log(
-  "📝 I can write and execute TypeScript/JavaScript files using the Andromeda runtime",
+  colors.blue("📝 I can write and execute TypeScript/JavaScript files using the Andromeda runtime"),
 );
-console.log('💡 Type your requests below (type "exit" to quit)');
-console.log('🧹 Type "clear" to clear conversation history');
-console.log('❓ Type "help" for available commands');
-console.log("─".repeat(60));
+console.log(colors.green('💡 Type your requests below (type "exit" to quit)'));
+console.log(colors.green('🧹 Type "clear" to clear conversation history'));
+console.log(colors.green('❓ Type "help" for available commands'));
+console.log(colors.dim("─".repeat(60)));
 
 async function startChat() {
   while (true) {
@@ -58,12 +68,12 @@ async function startChat() {
     }
 
     if (userInput.toLowerCase() === "exit") {
-      console.log("👋 Goodbye!");
+      console.log(colors.yellow("👋 Goodbye!"));
       break;
     }
     if (userInput.toLowerCase() === "clear") {
       console.log(
-        "🧹 Conversation history cleared! (Note: Each request is independent with the new agent)",
+        colors.green("🧹 Conversation history cleared! (Note: Each request is independent with the new agent)"),
       );
       continue;
     }
@@ -82,7 +92,7 @@ async function startChat() {
   
 💡 Example requests:
   - "Create a TypeScript file that calculates fibonacci numbers"
-  - "Write a simple web server and execute it"
+  - "Write a simple canvas rendered cat"
   - "Show me the files in the workspace"
   - "Create a calculator application"
       `);
@@ -95,27 +105,26 @@ async function startChat() {
       // Get AI response
       const response = await agent.chat(userInput);
       // Display response
-      console.log(`\n🌌 Andromeda Agent: ${response.content}\n`);
+      console.log(`\n${colors.blue.bold("🌌 Andromeda Agent:")} ${response.content}\n`);
 
       // Show token usage
       if (response.usage) {
         console.log(
-          `📊 Tokens: ${response.usage.totalTokens} (prompt: ${response.usage.promptTokens}, completion: ${response.usage.completionTokens})`,
+          colors.dim(`📊 Tokens: ${response.usage.totalTokens} (prompt: ${response.usage.promptTokens}, completion: ${response.usage.completionTokens})`),
         );
       }
 
-      console.log("─".repeat(50));
+      console.log(colors.dim("─".repeat(50)));
     } catch (error) {
       console.error(
-        "❌ Error:",
+        colors.red("❌ Error:"),
         error instanceof Error ? error.message : String(error),
       );
-      console.log("Please try again or check your API key.");
+      console.log(colors.yellow("Please try again or check your API key."));
     }
   }
 }
 
-// Start the chat application
 if (import.meta.main) {
   await startChat();
 }

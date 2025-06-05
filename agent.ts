@@ -2,7 +2,28 @@
 import { generateText, tool } from "ai";
 import { createOpenAI, OpenAIProvider } from "@ai-sdk/openai";
 import { z } from "zod";
-import { AgentConfig, ExecutionResult, FileOperation } from "./types.ts";
+import { colors } from "https://deno.land/x/cliffy@v1.0.0-rc.7/ansi/colors.ts";
+
+export interface AgentConfig {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  workspaceDir?: string;
+  apiKey?: string;
+}
+
+export interface FileOperation {
+  type: "write" | "read" | "delete" | "list";
+  path: string;
+  content?: string;
+}
+
+export interface ExecutionResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  duration?: number;
+}
 
 export class AndromedaAgent {
   #config: AgentConfig;
@@ -23,6 +44,9 @@ export class AndromedaAgent {
   }
 
   #getTools() {
+    const logTask = (name: string, detail: string): void => {
+      console.log(colors.dim(`[${name}] ${detail}`));
+    };
     return {
       writeFile: tool({
         description: "Write content to a file in the workspace",
@@ -30,13 +54,19 @@ export class AndromedaAgent {
           path: z.string().describe(
             "The file path relative to the workspace directory",
           ),
-          content: z.string().describe("The content to write to the file"),
+          // Allow content as a single string or array of strings to avoid invalid argument errors
+          content: z.union([z.string(), z.array(z.string())]).describe(
+            "The content to write to the file, as a string or array of lines"
+          ),
         }),
-        execute: async ({ path, content }) => {
+        execute: async ({ path, content }: { path: string; content: string | string[] }) => {
+          logTask("writeFile", path);
+          // Normalize content to string
+          const fileContent = Array.isArray(content) ? content.join("\n") : content;
           return this.#executeFileOperation({
             type: "write",
             path,
-            content,
+            content: fileContent,
           });
         },
       }),
@@ -47,7 +77,8 @@ export class AndromedaAgent {
             "The file path relative to the workspace directory",
           ),
         }),
-        execute: async ({ path }) => {
+        execute: async ({ path }: { path: string }) => {
+          logTask("readFile", path);
           return this.#executeFileOperation({
             type: "read",
             path,
@@ -61,7 +92,8 @@ export class AndromedaAgent {
             "The file path relative to the workspace directory",
           ),
         }),
-        execute: async ({ path }) => {
+        execute: async ({ path }: { path: string }) => {
+          logTask("deleteFile", path);
           return this.#executeFileOperation({
             type: "delete",
             path,
@@ -75,7 +107,8 @@ export class AndromedaAgent {
             "The directory path relative to the workspace directory (optional, defaults to root)",
           ).default("."),
         }),
-        execute: async ({ directory }) => {
+        execute: async ({ directory }: { directory: string }) => {
+          logTask("listFiles", directory);
           return this.#executeFileOperation({
             type: "list",
             path: directory,
@@ -93,59 +126,52 @@ export class AndromedaAgent {
             "Command line arguments to pass to the file (optional)",
           ).default([]),
         }),
-        execute: async ({ path, args }) => {
-          const result = await this.#executeCode(path, args);
-          return {
-            success: result.success,
-            output: result.output +
-              (result.error ? `\nERROR:\n${result.error}` : ""),
-          };
+        execute: async ({ path, args }: { path: string; args: string[] }) => {
+          logTask("executeFile", path);
+          const result = await this.executeCode(path, args);
+          console.log(colors.green(`\n📦 Andromeda runtime output:`));
+          console.log(colors.white(result.output));
+          if (result.error) {
+            console.log(colors.red(`\n📦 Andromeda runtime error:`));
+            console.log(colors.red(result.error));
+          }
+          return { success: result.success, output: result.output + (result.error ? `\nERROR:\n${result.error}` : "") };
         },
       }),
       runAndDebug: tool({
-        description:
-          "Run a file with Andromeda and return stdout and stderr for manual refactoring",
+        description: "Run a file with Andromeda and return stdout and stderr for manual refactoring",
         parameters: z.object({
           path: z.string().describe("File path relative to workspace"),
-          args: z.array(z.string()).default([]).describe(
-            "Arguments to pass to the file",
-          ),
+          args: z.array(z.string()).default([]).describe("Arguments to pass to the file"),
         }),
-        execute: async ({ path, args }) => {
-          const result = await this.#executeCode(path, args);
-          return {
-            success: result.success,
-            output: `STDOUT:\n${result.output}\nSTDERR:\n${result.error || ""}`,
-          };
+        execute: async ({ path, args }: { path: string; args: string[] }) => {
+          logTask("runAndDebug", path);
+          const result = await this.executeCode(path, args);
+          return { success: result.success, output: `STDOUT:\n${result.output}\nSTDERR:\n${result.error || ""}` };
         },
       }),
       copyFile: tool({
         description: "Copy a file from one path to another in the workspace",
         parameters: z.object({
           src: z.string().describe("Source file path relative to workspace"),
-          dest: z.string().describe(
-            "Destination file path relative to workspace",
-          ),
+          dest: z.string().describe("Destination file path relative to workspace"),
         }),
-        execute: async ({ src, dest }) => {
+        execute: async ({ src, dest }: { src: string; dest: string }) => {
+          logTask("copyFile", `${src} -> ${dest}`);
           const fullSrc = `${this.#workspaceDir}/${src}`;
           const fullDest = `${this.#workspaceDir}/${dest}`;
           await Deno.copyFile(fullSrc, fullDest);
-          return {
-            success: true,
-            output: `File copied from ${src} to ${dest}`,
-          };
+          return { success: true, output: `File copied from ${src} to ${dest}` };
         },
       }),
       moveFile: tool({
         description: "Move or rename a file in the workspace",
         parameters: z.object({
           src: z.string().describe("Source file path relative to workspace"),
-          dest: z.string().describe(
-            "Destination file path relative to workspace",
-          ),
+          dest: z.string().describe("Destination file path relative to workspace"),
         }),
-        execute: async ({ src, dest }) => {
+        execute: async ({ src, dest }: { src: string; dest: string }) => {
+          logTask("moveFile", `${src} -> ${dest}`);
           const fullSrc = `${this.#workspaceDir}/${src}`;
           const fullDest = `${this.#workspaceDir}/${dest}`;
           await Deno.rename(fullSrc, fullDest);
@@ -154,10 +180,9 @@ export class AndromedaAgent {
       }),
       getEnv: tool({
         description: "Get an environment variable value",
-        parameters: z.object({
-          key: z.string().describe("Environment variable name"),
-        }),
-        execute: async ({ key }) => {
+        parameters: z.object({ key: z.string().describe("Environment variable name") }),
+        execute: async ({ key }: { key: string }) => {
+          logTask("getEnv", key);
           const value = Deno.env.get(key) || "";
           return { success: true, output: value };
         },
@@ -168,17 +193,17 @@ export class AndromedaAgent {
           key: z.string().describe("Environment variable name"),
           value: z.string().describe("Value to set"),
         }),
-        execute: async ({ key, value }) => {
+        execute: async ({ key, value }: { key: string; value: string }) => {
+          logTask("setEnv", key);
           Deno.env.set(key, value);
           return { success: true, output: `Set ${key}` };
         },
       }),
       removeEnv: tool({
         description: "Remove an environment variable",
-        parameters: z.object({
-          key: z.string().describe("Environment variable name"),
-        }),
-        execute: async ({ key }) => {
+        parameters: z.object({ key: z.string().describe("Environment variable name") }),
+        execute: async ({ key }: { key: string }) => {
+          logTask("removeEnv", key);
           Deno.env.delete(key);
           return { success: true, output: `Removed ${key}` };
         },
@@ -186,7 +211,8 @@ export class AndromedaAgent {
       listEnv: tool({
         description: "List all environment variables",
         parameters: z.object({}),
-        execute: async () => {
+        execute: async (_params: Record<PropertyKey, never>) => {
+          logTask("listEnv", "all vars");
           const keys = Deno.env.toObject();
           const listing = Object.entries(keys)
             .map(([k, v]) => `${k}=${v}`)
@@ -194,6 +220,7 @@ export class AndromedaAgent {
           return { success: true, output: listing };
         },
       }),
+      // Fetch HTTP content from a URL
       fetchUrl: tool({
         description: "Fetch content from a URL",
         parameters: z.object({
@@ -202,27 +229,24 @@ export class AndromedaAgent {
           headers: z.record(z.string(), z.string()).optional(),
           body: z.string().optional(),
         }),
-        execute: async ({ url, method, headers, body }) => {
+        execute: async ({ url, method, headers, body }: { url: string; method: string; headers?: Record<string,string>; body?: string }) => {
+          logTask("fetchUrl", url);
           const res = await fetch(url, { method, headers, body });
           const text = await res.text();
           return { success: true, output: `Status: ${res.status}\n${text}` };
         },
       }),
+      // Run a shell command in the workspace
       runShell: tool({
         description: "Run a shell command in the workspace",
-        parameters: z.object({
-          command: z.string().describe("Command to run"),
-        }),
-        execute: async ({ command }) => {
+        parameters: z.object({ command: z.string().describe("Command to run") }),
+        execute: async ({ command }: { command: string }) => {
+          logTask("runShell", command);
           const shell = Deno.env.get("SHELL") || "pwsh.exe";
           const args = shell.toLowerCase().includes("pwsh")
             ? ["-Command", command]
             : ["-c", command];
-          const cmd = new Deno.Command(shell, {
-            args,
-            stdout: "piped",
-            stderr: "piped",
-          });
+          const cmd = new Deno.Command(shell, { args, stdout: "piped", stderr: "piped" });
           const proc = cmd.spawn();
           const { code, stdout, stderr } = await proc.output();
           const outTxt = new TextDecoder().decode(stdout);
@@ -233,30 +257,56 @@ export class AndromedaAgent {
           return { success: false, output: outTxt, error: errTxt };
         },
       }),
+      // Debugging: Type-check the workspace
       typeCheck: tool({
         description: "Type-check the workspace using Deno",
         parameters: z.object({
-          config: z.string().optional().describe(
-            "Optional deno.json path relative to workspace",
-          ),
+          config: z.string().optional().describe("Optional deno.json path relative to workspace"),
         }),
-        execute: async ({ config }) => {
+        execute: async ({ config }: { config?: string }) => {
+          logTask("typeCheck", config || "default");
           const cmd = new Deno.Command("deno", {
-            args: [
-              "check",
-              ...(config
-                ? ["--config", `${this.#workspaceDir}/${config}`]
-                : []),
-              ".",
-            ],
+            args: ["check", ...(config ? ["--config", `${this.#workspaceDir}/${config}`] : []), "."],
             stdout: "piped",
             stderr: "piped",
           });
           const proc = cmd.spawn();
           const { code, stdout, stderr } = await proc.output();
-          const output = new TextDecoder().decode(stdout) +
-            new TextDecoder().decode(stderr);
+          const output = new TextDecoder().decode(stdout) + new TextDecoder().decode(stderr);
           return { success: code === 0, output };
+        },
+      }),
+      // Debugging: Lint the workspace
+      lint: tool({
+        description: "Lint the workspace using Deno",
+        parameters: z.object({
+          config: z.string().optional().describe("Optional deno.json path relative to workspace"),
+        }),
+        execute: async ({ config }: { config?: string }) => {
+          logTask("lint", config || "default");
+          const cmd = new Deno.Command("deno", {
+            args: ["lint", ...(config ? ["--config", `${this.#workspaceDir}/${config}`] : []), "."],
+            stdout: "piped",
+            stderr: "piped",
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout) + new TextDecoder().decode(stderr);
+          return { success: code === 0, output };
+        },
+      }),
+      // Think tool for agent reasoning and thought logging
+      think: tool({
+        description: "Use this tool to think through complex problems and log reasoning without making external changes. Use when complex reasoning or memory is needed.",
+        parameters: z.object({
+          thought: z.string().describe("A thought or reasoning step to record in the log"),
+        }),
+        execute: async ({ thought }: { thought: string }) => {
+          console.log(colors.blue.bold(`🧠 [Agent Thought]`), colors.cyan(thought));
+          return { 
+            success: true, 
+            output: "Thought recorded in log" 
+          };
         },
       }),
     };
@@ -343,16 +393,27 @@ Andromeda does not support the ! TypeScript feature for non-null assertions, so 
 Current workspace directory: ${this.#workspaceDir}
 
 When you use tools, always explain what you're doing and show the results to the user.`;
+      
+      console.log(colors.green.bold("🧠 [Thought]"), colors.dim("System prompt snippet:"));
+      console.log(colors.gray(systemPrompt.slice(0, 200) + '...'));
+      console.log(colors.green.bold("🧠 [Thought]"), colors.dim("User message:"));
+      console.log(colors.yellow(userMessage));
+      console.log(colors.magenta("🤔 Thinking..."));
+
       const result = await generateText({
         model: this.#openai(this.#config.model || "gpt-4"),
         system: systemPrompt,
         prompt: userMessage,
         tools: this.#getTools(),
-        maxSteps: 10,
+        maxSteps: 5, // Allow multi-step tool calls
         temperature: this.#config.temperature,
         maxTokens: this.#config.maxTokens,
-        toolChoice: "auto",
+        toolChoice: "auto", // Let the model choose when to use tools
       });
+
+      // Log AI raw response for thought tracing
+      console.log(colors.green.bold("🧠 [Thought]"), colors.dim("AI raw response:"));
+      console.log(colors.gray(result.text));
 
       return {
         content: result.text,
@@ -399,25 +460,6 @@ When you use tools, always explain what you're doing and show the results to the
             success: true,
             output: `File deleted successfully: ${operation.path}`,
           };
-
-        case "append": {
-          await Deno.mkdir(this.#workspaceDir, { recursive: true });
-          
-          let existingContent = "";
-          try {
-            existingContent = await Deno.readTextFile(fullPath);
-          } catch (_) {
-            // File doesn't exist yet, will create new
-          }
-          
-          const newContent = existingContent + operation.content!;
-          await Deno.writeTextFile(fullPath, newContent);
-          
-          return {
-            success: true,
-            output: `Content appended successfully to: ${operation.path}`,
-          };
-        }
 
         case "list": {
           const files: string[] = [];
@@ -468,7 +510,7 @@ When you use tools, always explain what you're doing and show the results to the
     }
   }
 
-  async #executeCode(
+  private async executeCode(
     path: string,
     args: string[] = [],
   ): Promise<ExecutionResult> {
