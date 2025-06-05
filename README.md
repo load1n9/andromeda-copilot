@@ -1,1 +1,1 @@
-# andromeda-copilot
+# Andromeda Copilot

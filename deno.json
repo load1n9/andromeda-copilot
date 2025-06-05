@@ -1,0 +1,15 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run  --env-file=.env main.ts",
+    "start": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run --env-file=.env main.ts"
+  },
+  "imports": {
+    "ai": "npm:ai@^3.4.33",
+    "@ai-sdk/openai": "npm:@ai-sdk/openai@^0.0.56",
+    "zod": "npm:zod@^3.25.51",
+    "std/": "https://deno.land/std@0.208.0/"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.worker", "deno.unstable"]
+  }
+}
