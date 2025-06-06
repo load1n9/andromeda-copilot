@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Andromeda Copilot - AI Agent for TypeScript/JavaScript Development">
+    <meta name="keywords"
+        content="Andromeda, Copilot, AI, Agent, TypeScript, JavaScript, Development, Runtime, Coding Assistant">
+    <meta name="author" content="Dean Srebnik">
+    <meta name="application-name" content="Andromeda Copilot">
+    <meta property="og:title" content="Andromeda Copilot">
+    <meta property="og:description" content="AI Agent for TypeScript/JavaScript Development">
+    <meta property="og:type" content="website">
+    <title>Andromeda Copilot</title>
+    <link rel="stylesheet" href="styles.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Inter:wght@100..900&display=swap"
+        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>Andromeda Copilot</h1>
+                <p>TypeScript/JavaScript runtime agent with Andromeda</p>
+            </div>
+            <div class="workspace-info">
+                <div class="workspace-current" id="workspaceCurrent">
+                    <span class="workspace-icon">📂</span>
+                    <span class="workspace-name" id="workspaceName">Loading...</span>
+                </div>
+                <button class="workspace-btn" id="workspaceBtn">Workspaces</button>
+            </div>
+            <div class="status" id="status">
+                <span class="status-dot"></span>
+                <span>Connecting...</span>
+            </div>
+            <div class="session-info">
+                <div class="session-item">
+                    <span class="session-label">Session:</span>
+                    <span id="sessionId">New session</span>
+                </div>
+                <div class="session-item">
+                    <span class="session-label">Tokens:</span>
+                    <span id="totalTokens">0</span>
+                </div>
+                <div class="session-item">
+                    <span class="session-label">Messages:</span>
+                    <span id="messageCount">0</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="modal" id="workspaceModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📂 Workspace Manager</h2>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="workspace-actions">
+                        <button class="btn btn-primary" id="createWorkspaceBtn">
+                            + Create Workspace
+                        </button>
+                        <button class="btn btn-secondary" id="refreshWorkspacesBtn">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                    <div class="workspace-list" id="workspaceList">
+                        <div class="loading">Loading workspaces...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="createWorkspaceModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>📂 Create New Workspace</h2>
+                    <button class="modal-close" id="createModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="createWorkspaceForm">
+                        <div class="form-group">
+                            <label for="workspaceNameInput">Workspace Name:</label>
+                            <input type="text" id="workspaceNameInput" required placeholder="Enter workspace name">
+                        </div>
+                        <div class="form-group">
+                            <label for="workspaceDescInput">Description (optional):</label>
+                            <textarea id="workspaceDescInput" placeholder="Enter workspace description"></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" id="cancelCreateBtn">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">Create</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-container">
+                <div class="messages" id="messages">
+                    <div class="message agent-message">
+                        <div class="message-header">
+                            <span class="avatar">🌌</span>
+                            <span class="sender">Andromeda Copilot</span>
+                        </div>
+                        <div class="message-content">
+                            Welcome! I'm an AI agent that can write and execute
+                            TypeScript/JavaScript files using the Andromeda runtime. I can
+                            help you create applications, scripts, and more. What would you
+                            like to build today?
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <textarea id="messageInput"
+                            placeholder="Ask me to create a TypeScript file, build an application, or execute code..."
+                            rows="1"></textarea>
+                        <button id="sendButton" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <small>Press Ctrl+Enter to send • <span id="tokenCount">0 tokens used</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
