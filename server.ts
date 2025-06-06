@@ -26,7 +26,7 @@ function getOrCreateAgent(
   const agent = new AndromedaAgent({
     model: "gpt-4",
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: 3_096,
     workspaceDir,
     workspaceManager,
     apiKey: apiKey || Deno.env.get("OPENAI_API_KEY"),

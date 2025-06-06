@@ -1,30 +1,30 @@
 class AndromedaChat {
-    apiUrl = "/api";
-   sessionId = null;
-    totalTokens = 0;
-    messageCount = 0;
-    isConnected = false;
-    currentWorkspace = null;
-    elements = {
-      messages: document.getElementById("messages"),
-      messageInput: document.getElementById("messageInput"),
-      sendButton: document.getElementById("sendButton"),
-      status: document.getElementById("status"),
-      sessionId: document.getElementById("sessionId"),
-      totalTokens: document.getElementById("totalTokens"),
-      messageCount: document.getElementById("messageCount"),
-      tokenCount: document.getElementById("tokenCount"),
-      workspaceName: document.getElementById("workspaceName"),
-      workspaceBtn: document.getElementById("workspaceBtn"),
-      workspaceModal: document.getElementById("workspaceModal"),
-      createWorkspaceModal: document.getElementById("createWorkspaceModal"),
-      workspaceList: document.getElementById("workspaceList"),
-      createWorkspaceBtn: document.getElementById("createWorkspaceBtn"),
-      refreshWorkspacesBtn: document.getElementById("refreshWorkspacesBtn"),
-      createWorkspaceForm: document.getElementById("createWorkspaceForm"),
-      workspaceNameInput: document.getElementById("workspaceNameInput"),
-      workspaceDescInput: document.getElementById("workspaceDescInput"),
-    };
+  apiUrl = "/api";
+  sessionId = null;
+  totalTokens = 0;
+  messageCount = 0;
+  isConnected = false;
+  currentWorkspace = null;
+  elements = {
+    messages: document.getElementById("messages"),
+    messageInput: document.getElementById("messageInput"),
+    sendButton: document.getElementById("sendButton"),
+    status: document.getElementById("status"),
+    sessionId: document.getElementById("sessionId"),
+    totalTokens: document.getElementById("totalTokens"),
+    messageCount: document.getElementById("messageCount"),
+    tokenCount: document.getElementById("tokenCount"),
+    workspaceName: document.getElementById("workspaceName"),
+    workspaceBtn: document.getElementById("workspaceBtn"),
+    workspaceModal: document.getElementById("workspaceModal"),
+    createWorkspaceModal: document.getElementById("createWorkspaceModal"),
+    workspaceList: document.getElementById("workspaceList"),
+    createWorkspaceBtn: document.getElementById("createWorkspaceBtn"),
+    refreshWorkspacesBtn: document.getElementById("refreshWorkspacesBtn"),
+    createWorkspaceForm: document.getElementById("createWorkspaceForm"),
+    workspaceNameInput: document.getElementById("workspaceNameInput"),
+    workspaceDescInput: document.getElementById("workspaceDescInput"),
+  };
 
   constructor() {
     this.validateElements();

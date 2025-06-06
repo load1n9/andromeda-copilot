@@ -17,7 +17,7 @@ export class AndromedaAgent {
     this.#workspaceManager = config.workspaceManager;
     this.#config = {
       temperature: 0.7,
-      maxTokens: 2000,
+      maxTokens: 3_096,
       ...config,
     };
 
@@ -433,7 +433,7 @@ When you use tools, always explain what you're doing and show the results to the
         system: systemPrompt,
         prompt: userMessage,
         tools: this.#getTools(),
-        maxSteps: 10,
+        maxSteps: 20,
         temperature: this.#config.temperature,
         maxTokens: this.#config.maxTokens,
         toolChoice: "auto",
