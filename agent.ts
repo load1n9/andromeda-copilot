@@ -331,6 +331,414 @@ export class AndromedaAgent {
           };
         },
       }),
+      // New Andromeda APIs
+      formatCode: tool({
+        description: "Format TypeScript/JavaScript files using Andromeda's built-in formatter",
+        parameters: z.object({
+          paths: z.array(z.string()).describe("File paths to format (relative to workspace)"),
+        }),
+        execute: async ({ paths }: { paths: string[] }) => {
+          logTask("formatCode", paths.join(", "));
+          const fullPaths = paths.map(p => `${this.getCurrentWorkspaceDir()}/${p}`);
+          const cmd = new Deno.Command("andromeda", {
+            args: ["fmt", ...fullPaths],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          return {
+            success: code === 0,
+            output: output || "Files formatted successfully",
+            error: error || undefined,
+          };
+        },
+      }),
+      compileToExecutable: tool({
+        description: "Compile a TypeScript/JavaScript file to a standalone executable using Andromeda",
+        parameters: z.object({
+          inputFile: z.string().describe("Input TypeScript/JavaScript file path"),
+          outputFile: z.string().describe("Output executable file path"),
+        }),
+        execute: async ({ inputFile, outputFile }: { inputFile: string; outputFile: string }) => {
+          logTask("compileToExecutable", `${inputFile} -> ${outputFile}`);
+          const cmd = new Deno.Command("andromeda", {
+            args: ["compile", inputFile, outputFile],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          return {
+            success: code === 0,
+            output: output || `Compiled ${inputFile} to ${outputFile}`,
+            error: error || undefined,
+          };
+        },
+      }),
+      lintCode: tool({
+        description: "Run Andromeda's Language Server Protocol linting on files",
+        parameters: z.object({
+          paths: z.array(z.string()).describe("File paths to lint (relative to workspace)"),
+        }),
+        execute: async ({ paths }: { paths: string[] }) => {
+          logTask("lintCode", paths.join(", "));
+          const cmd = new Deno.Command("andromeda", {
+            args: ["check", ...paths],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          return {
+            success: code === 0,
+            output: output || "No linting issues found",
+            error: error || undefined,
+          };
+        },
+      }),
+      runTask: tool({
+        description: "Run a predefined task from andromeda.json/toml/yaml configuration",
+        parameters: z.object({
+          taskName: z.string().describe("Name of the task to run"),
+        }),
+        execute: async ({ taskName }: { taskName: string }) => {
+          logTask("runTask", taskName);
+          const cmd = new Deno.Command("andromeda", {
+            args: ["task", taskName],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          return {
+            success: code === 0,
+            output: output || `Task ${taskName} completed`,
+            error: error || undefined,
+          };
+        },
+      }),
+      listTasks: tool({
+        description: "List all available tasks from configuration",
+        parameters: z.object({}),
+        execute: async () => {
+          logTask("listTasks", "all");
+          const cmd = new Deno.Command("andromeda", {
+            args: ["task"],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          return {
+            success: code === 0,
+            output: output || "No tasks found",
+            error: error || undefined,
+          };
+        },
+      }),
+      startRepl: tool({
+        description: "Start an interactive REPL session with Andromeda",
+        parameters: z.object({
+          options: z.object({
+            exposeInternals: z.boolean().default(false),
+            printInternals: z.boolean().default(false),
+            disableGc: z.boolean().default(false),
+          }).default({}),
+        }),
+        execute: async ({ options }: { options: { exposeInternals?: boolean; printInternals?: boolean; disableGc?: boolean } }) => {
+          logTask("startRepl", "interactive session");
+          const args = ["repl"];
+          if (options.exposeInternals) args.push("--expose-internals");
+          if (options.printInternals) args.push("--print-internals");
+          if (options.disableGc) args.push("--disable-gc");
+          
+          return {
+            success: true,
+            output: `REPL would start with: andromeda ${args.join(" ")}\nNote: Interactive REPL cannot be started from this context.`,
+          };
+        },
+      }),
+      createImportMap: tool({
+        description: "Create or update an import map configuration for modern module resolution",
+        parameters: z.object({
+          imports: z.record(z.string(), z.string()).describe("Import map entries"),
+          configFile: z.string().default("andromeda.json").describe("Configuration file name"),
+        }),
+        execute: async ({ imports, configFile }: { imports: Record<string, string>; configFile: string }) => {
+          logTask("createImportMap", configFile);
+          const configPath = `${this.getCurrentWorkspaceDir()}/${configFile}`;
+          
+          let config = {};
+          try {
+            const existing = await Deno.readTextFile(configPath);
+            config = JSON.parse(existing);
+          } catch {
+            // File doesn't exist or is invalid, start fresh
+          }
+          
+          const updatedConfig = {
+            ...config,
+            imports: {
+              ...(config as any).imports || {},
+              ...imports,
+            },
+          };
+          
+          await Deno.writeTextFile(configPath, JSON.stringify(updatedConfig, null, 2));
+          
+          return {
+            success: true,
+            output: `Import map updated in ${configFile}`,
+          };
+        },
+      }),
+      createConfiguration: tool({
+        description: "Create or update Andromeda configuration file with tasks, import maps, and settings",
+        parameters: z.object({
+          config: z.object({
+            tasks: z.record(z.string(), z.union([
+              z.string(),
+              z.object({
+                description: z.string().optional(),
+                command: z.string(),
+                env: z.record(z.string(), z.string()).optional(),
+                dependencies: z.array(z.string()).optional(),
+                cwd: z.string().optional(),
+              })
+            ])).optional(),
+            imports: z.record(z.string(), z.string()).optional(),
+            exclude: z.array(z.string()).optional(),
+            include: z.array(z.string()).optional(),
+          }),
+          configFile: z.string().default("andromeda.json").describe("Configuration file name"),
+        }),
+        execute: async ({ config, configFile }: { config: Record<string, unknown>; configFile: string }) => {
+          logTask("createConfiguration", configFile);
+          const configPath = `${this.getCurrentWorkspaceDir()}/${configFile}`;
+          
+          let existingConfig = {};
+          try {
+            const existing = await Deno.readTextFile(configPath);
+            existingConfig = JSON.parse(existing);
+          } catch {
+            // File doesn't exist or is invalid, start fresh
+          }
+          
+          const updatedConfig = {
+            ...existingConfig,
+            ...config,
+          };
+          
+          await Deno.writeTextFile(configPath, JSON.stringify(updatedConfig, null, 2));
+          
+          return {
+            success: true,
+            output: `Configuration updated in ${configFile}`,
+          };
+        },
+      }),
+      diagnostics: tool({
+        description: "Get comprehensive diagnostics for TypeScript/JavaScript files using Andromeda's LSP",
+        parameters: z.object({
+          files: z.array(z.string()).describe("File paths to analyze"),
+          includeWarnings: z.boolean().default(true),
+          includeHints: z.boolean().default(false),
+        }),
+        execute: async ({ files, includeWarnings: _includeWarnings, includeHints: _includeHints }: { files: string[]; includeWarnings: boolean; includeHints: boolean }) => {
+          logTask("diagnostics", files.join(", "));
+          
+          // Use andromeda check for comprehensive analysis
+          const cmd = new Deno.Command("andromeda", {
+            args: ["check", "--verbose", ...files],
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          const proc = cmd.spawn();
+          const { code: _code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          
+          return {
+            success: true, // Always return diagnostics even if there are issues
+            output: `Diagnostics for ${files.join(", ")}:\n${output}\n${error}`,
+          };
+        },
+      }),
+      upgradeAndromeda: tool({
+        description: "Upgrade Andromeda runtime to the latest version",
+        parameters: z.object({
+          force: z.boolean().default(false).describe("Force upgrade even if already latest"),
+          version: z.string().optional().describe("Specific version to upgrade to"),
+          dryRun: z.boolean().default(false).describe("Preview what would be upgraded"),
+        }),
+        execute: async ({ force, version, dryRun }: { force: boolean; version?: string; dryRun: boolean }) => {
+          logTask("upgradeAndromeda", version || "latest");
+          const args = ["upgrade"];
+          if (force) args.push("--force");
+          if (version) args.push("--version", version);
+          if (dryRun) args.push("--dry-run");
+          
+          const cmd = new Deno.Command("andromeda", {
+            args,
+            stdout: "piped",
+            stderr: "piped",
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          
+          return {
+            success: code === 0,
+            output: output || `Andromeda upgrade ${dryRun ? "preview" : "completed"}`,
+            error: error || undefined,
+          };
+        },
+      }),
+      generateCompletions: tool({
+        description: "Generate shell completion scripts for Andromeda",
+        parameters: z.object({
+          shell: z.enum(["bash", "zsh", "fish", "powershell"]).optional(),
+          outputFile: z.string().optional().describe("File to save completions to"),
+        }),
+        execute: async ({ shell, outputFile }: { shell?: string; outputFile?: string }) => {
+          logTask("generateCompletions", shell || "auto-detect");
+          const args = ["completions"];
+          if (shell) args.push(shell);
+          
+          const cmd = new Deno.Command("andromeda", {
+            args,
+            stdout: "piped",
+            stderr: "piped",
+          });
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          
+          if (outputFile && code === 0) {
+            const outputPath = `${this.getCurrentWorkspaceDir()}/${outputFile}`;
+            await Deno.writeTextFile(outputPath, output);
+          }
+          
+          return {
+            success: code === 0,
+            output: outputFile ? `Completions saved to ${outputFile}` : output,
+            error: error || undefined,
+          };
+        },
+      }),
+      performanceBenchmark: tool({
+        description: "Run a performance benchmark on a TypeScript/JavaScript file",
+        parameters: z.object({
+          path: z.string().describe("File path to benchmark"),
+          iterations: z.number().default(1).describe("Number of iterations to run"),
+          warmup: z.boolean().default(true).describe("Run warmup iterations"),
+        }),
+        execute: async ({ path, iterations, warmup }: { path: string; iterations: number; warmup: boolean }) => {
+          logTask("performanceBenchmark", `${path} x${iterations}`);
+          
+          const results: Array<{ iteration: number; duration: number; success: boolean; output?: string; error?: string }> = [];
+          
+          // Warmup run
+          if (warmup) {
+            await this.#executeCode(path, []);
+          }
+          
+          for (let i = 0; i < iterations; i++) {
+            const start = performance.now();
+            const result = await this.#executeCode(path, []);
+            const duration = performance.now() - start;
+            
+            results.push({
+              iteration: i + 1,
+              duration,
+              success: result.success,
+              output: result.output,
+              error: result.error,
+            });
+          }
+          
+          const successfulRuns = results.filter(r => r.success);
+          const avgDuration = successfulRuns.reduce((sum, r) => sum + r.duration, 0) / successfulRuns.length;
+          const minDuration = Math.min(...successfulRuns.map(r => r.duration));
+          const maxDuration = Math.max(...successfulRuns.map(r => r.duration));
+          
+          return {
+            success: true,
+            output: `Performance Benchmark Results for ${path}:
+Iterations: ${iterations}
+Successful runs: ${successfulRuns.length}/${iterations}
+Average duration: ${avgDuration.toFixed(2)}ms
+Min duration: ${minDuration.toFixed(2)}ms
+Max duration: ${maxDuration.toFixed(2)}ms
+
+Individual results:
+${results.map(r => `  Run ${r.iteration}: ${r.duration.toFixed(2)}ms ${r.success ? '✓' : '✗'}`).join('\n')}`,
+          };
+        },
+      }),
+      profileExecution: tool({
+        description: "Profile execution of a TypeScript/JavaScript file with detailed metrics",
+        parameters: z.object({
+          path: z.string().describe("File path to profile"),
+          enableGcStats: z.boolean().default(false).describe("Enable garbage collection statistics"),
+          enableMemoryStats: z.boolean().default(false).describe("Enable memory usage statistics"),
+        }),
+        execute: async ({ path, enableGcStats, enableMemoryStats }: { path: string; enableGcStats: boolean; enableMemoryStats: boolean }) => {
+          logTask("profileExecution", path);
+          
+          const args = ["run"];
+          if (enableGcStats) args.push("--print-internals");
+          if (enableMemoryStats) args.push("--verbose");
+          args.push(path);
+          
+          const cmd = new Deno.Command("andromeda", {
+            args,
+            stdout: "piped",
+            stderr: "piped",
+            cwd: this.getCurrentWorkspaceDir(),
+          });
+          
+          const start = performance.now();
+          const proc = cmd.spawn();
+          const { code, stdout, stderr } = await proc.output();
+          const duration = performance.now() - start;
+          
+          const output = new TextDecoder().decode(stdout);
+          const error = new TextDecoder().decode(stderr);
+          
+          return {
+            success: code === 0,
+            output: `Execution Profile for ${path}:
+Total execution time: ${duration.toFixed(2)}ms
+Exit code: ${code}
+
+Standard Output:
+${output}
+
+${error ? `Diagnostic Information:\n${error}` : ''}`,
+            error: code !== 0 ? error : undefined,
+          };
+        },
+      }),
     };
   }
 
@@ -352,12 +760,26 @@ You have access to tools that allow you to:
 3. deleteFile - Delete files from the workspace
 4. listFiles - List files in the workspace directory
 5. executeFile - Execute TypeScript/JavaScript files using the Andromeda runtime
+6. formatCode - Format code using Andromeda's built-in formatter
+7. compileToExecutable - Compile TypeScript/JavaScript to standalone executables
+8. lintCode - Run Andromeda's LSP linting on files
+9. runTask - Execute predefined tasks from configuration
+10. listTasks - List all available tasks
+11. startRepl - Information about starting interactive REPL
+12. createImportMap - Create/update import maps for modern module resolution
 
-The Andromeda runtime is a JavaScript/TypeScript runtime written in Rust that provides the following built-in APIs:
+The Andromeda runtime is a modern JavaScript/TypeScript runtime written in Rust that provides the following built-in APIs:
 
 **File System Operations:**
 - Andromeda.readTextFileSync(path: string): string - Read text files synchronously
 - Andromeda.writeTextFileSync(path: string, data: string): void - Write text files synchronously
+- Andromeda.readFile(path: string): Promise<Uint8Array> - Read binary files asynchronously
+- Andromeda.writeFile(path: string, data: Uint8Array): Promise<void> - Write binary files asynchronously
+- Andromeda.copyFile(src: string, dest: string): Promise<void> - Copy files
+- Andromeda.rename(oldPath: string, newPath: string): Promise<void> - Rename/move files
+- Andromeda.remove(path: string): Promise<void> - Remove files/directories
+- Andromeda.mkdir(path: string): Promise<void> - Create directories
+- Andromeda.stat(path: string): Promise<FileInfo> - Get file information
 
 **Environment & Process:**
 - Andromeda.args: string[] - Access command-line arguments
@@ -370,14 +792,7 @@ The Andromeda runtime is a JavaScript/TypeScript runtime written in Rust that pr
 - Andromeda.env.remove(key: string): void - Remove environment variable
 - Andromeda.env.keys(): string[] - Get all environment variable keys
 
-**Input/Output:**
-- console and all its apis are implemented
-- Andromeda.stdin.readLine(): string - Read line from standard input
-- Andromeda.stdout.write(message: string): void - Write to standard output
-- prompt(message: string): string - Prompt user for input
-- confirm(message: string): boolean - Prompt user for confirmation
-
-**Canvas/Graphics:**
+**Canvas/Graphics (GPU-Accelerated with WGPU):**
 - OffscreenCanvas class for 2D graphics rendering:
   - new OffscreenCanvas(width: number, height: number) - Create canvas with dimensions
   - canvas.getWidth(): number - Get canvas width
@@ -398,21 +813,84 @@ The Andromeda runtime is a JavaScript/TypeScript runtime written in Rust that pr
   - createImageBitmap(path: string): Promise<ImageBitmap> - Load images from file path
   - ImageBitmap.width: number, ImageBitmap.height: number - Image dimensions
 
+**SQLite Database Support:**
+- Database class for SQLite operations:
+  - new Database(path: string) - Open/create database
+  - db.prepare(sql: string): Statement - Prepare SQL statement
+  - statement.run(...params): RunResult - Execute statement
+  - statement.get(...params): any - Get single row
+  - statement.all(...params): any[] - Get all rows
+  - db.close(): void - Close database
+
+**Web Storage APIs:**
+- localStorage and sessionStorage for data persistence:
+  - localStorage.setItem(key: string, value: string): void
+  - localStorage.getItem(key: string): string | null
+  - localStorage.removeItem(key: string): void
+  - localStorage.clear(): void
+  - localStorage.length: number
+  - localStorage.key(index: number): string | null
+
+**Web Crypto API:**
+- crypto.randomUUID(): string - Generate UUID
+- crypto.getRandomValues(array: TypedArray): TypedArray - Fill with random values
+- crypto.subtle.digest(algorithm: string, data: BufferSource): Promise<ArrayBuffer> - Hash data
+- crypto.subtle.generateKey(...): Promise<CryptoKey> - Generate cryptographic keys
+- crypto.subtle.encrypt/decrypt/sign/verify operations
+
+**Performance API:**
+- performance.now(): number - High-precision timestamp
+- performance.mark(name: string): void - Create performance mark
+- performance.measure(name: string, startMark?: string, endMark?: string): void - Measure performance
+- performance.timeOrigin: number - Time origin for performance measurements
+
+**Web Standards:**
+- TextEncoder/TextDecoder for text encoding
+- navigator.userAgent and platform detection
+- queueMicrotask(callback: Function): void - Schedule microtasks
+- URL and URLSearchParams for URL manipulation
+- fetch() for HTTP requests
+- setTimeout/setInterval/clearTimeout/clearInterval for timing
+
+**Input/Output:**
+- console and all its apis are implemented
+- Andromeda.stdin.readLine(): string - Read line from standard input
+- Andromeda.stdout.write(message: string): void - Write to standard output
+- prompt(message: string): string - Prompt user for input
+- confirm(message: string): boolean - Prompt user for confirmation
+
 **Testing Utilities:**
 - assert(condition: boolean, message: string): void
 - assertEquals<T>(value1: T, value2: T, message: string): void
 - assertNotEquals<T>(value1: T, value2: T, message: string): void
 - assertThrows(fn: () => void, message: string): void
 
+**Task System:**
+Andromeda supports a powerful task system through configuration files (andromeda.json, andromeda.toml, or andromeda.yaml):
+- Define custom tasks with commands, descriptions, environment variables
+- Support task dependencies and execution order
+- Run tasks with 'andromeda task <name>'
+
+**Import Maps:**
+Modern module resolution with bare specifiers:
+- Configure import maps in andromeda.json
+- Support for CDN integration and local modules
+- Bare specifier resolution (e.g., import from "lodash")
+
 When creating TypeScript files for Andromeda:
 - Use these built-in APIs instead of Node.js or Deno APIs
 - No need to import anything - all APIs are globally available
 - Focus on TypeScript features and modern JavaScript syntax
 - Use the console object for debugging (console.log, etc.)
+- Take advantage of GPU-accelerated Canvas for graphics
+- Use SQLite for data persistence
+- Leverage Web Storage for client-side data
+- Use Web Crypto for security operations
+- Implement performance monitoring with the Performance API
 
 IMPORTANT: When calling tools, always use proper JSON formatting. For multi-line content in the writeFile tool, use proper JSON string escaping with \\n for newlines, not template literals or backticks.
 Andromeda does not support the ! TypeScript feature for non-null assertions, so avoid using it in your code.
-Current workspace directory: ${this.#workspaceDir}
+Current workspace directory: ${this.getCurrentWorkspaceDir()}
 
 When you use tools, always explain what you're doing and show the results to the user.`;
 
