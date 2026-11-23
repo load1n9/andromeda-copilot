@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#040505">
+    <meta name="description" content="Uses your location to work out which NJ Transit rail line you're on and your next stop.">
+    <title>Next Stop · NJ Transit</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>next<span>.</span>stop <span>/ nj transit</span></h1>
+        <div class="gps"><i id="gps-dot" class="dot"></i><span id="gps-text">GPS off</span></div>
+      </header>
+
+      <section id="hero" class="card hero" aria-live="polite">
+        <div><span id="badge" class="badge">—</span><span id="dir" class="dir"></span></div>
+        <div class="label" id="next-label">Next stop</div>
+        <div class="next" id="next">Waiting for location…</div>
+        <div class="stats">
+          <div class="stat"><b id="dist">—</b><span>Distance</span></div>
+          <div class="stat"><b id="eta">—</b><span>ETA</span></div>
+          <div class="stat"><b id="speed">—</b><span>Speed</span></div>
+        </div>
+        <p class="msg" id="msg"></p>
+        <div class="chips" id="chips"></div>
+        <div class="btns" style="margin-top:14px">
+          <button id="locate" class="primary">Use my location</button>
+          <button id="demo">Demo ride</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Configure</h2>
+        <div class="controls">
+          <div class="row">
+            <label for="line-sel">Line</label>
+            <select id="line-sel"></select>
+          </div>
+          <div class="row">
+            <label>Direction</label>
+            <div class="btns" id="dir-btns"></div>
+          </div>
+          <div class="row">
+            <label for="next-sel">Next stop</label>
+            <select id="next-sel"></select>
+          </div>
+          <div class="btns">
+            <button id="advance">Arrived → advance</button>
+            <button id="auto">Reset to auto</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="map-card">
+        <h2>Map</h2>
+        <svg id="map" role="img" aria-label="Line map showing your position"></svg>
+      </section>
+
+      <section class="card">
+        <h2 id="stops-title">Stops</h2>
+        <ol class="stops" id="stops"></ol>
+      </section>
+
+      <footer>
+        Theme colors from <a href="https://github.com/load1n9/themes">load1n9/themes</a> (Nyx).
+        Location never leaves your device. Station coordinates are approximate;
+        see <code>data.js</code>.
+      </footer>
+    </main>
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
